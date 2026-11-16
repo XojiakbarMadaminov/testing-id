@@ -1,0 +1,45 @@
+name: testing-id
+
+services:
+  app:
+    build: .
+    image: testing-id:local
+    env_file: .env
+    environment:
+      MOCK_DATA_DIR: /data
+    ports:
+      - "127.0.0.1:${MOCK_PORT:-8089}:8080"
+    volumes:
+      - testing_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.1
+    profiles: [https]
+    command: [tunnel, --no-autoupdate, --protocol, http2, --url, "http://app:8080"]
+    depends_on:
+      app:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 2m
+        max-file: "2"
+
+volumes:
+  testing_data:
+

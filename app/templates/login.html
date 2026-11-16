@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Testing ID — test hisobi bilan kirish</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <main class="card">
+    <div class="label">FAQAT TEST MUHITI</div>
+    <h1>Testing ID</h1>
+    <p>OneID kontraktini tekshirish uchun sun’iy hisob bilan kiring.</p>
+    <p class="notice">Bu haqiqiy OneID emas. Davlat tizimidagi login yoki parolingizni kiritmang.</p>
+    <p class="error" role="alert">{{ERROR}}</p>
+    <form method="post" action="/login">
+      <input type="hidden" name="request" value="{{REQUEST}}">
+      <input type="hidden" name="csrf" value="{{CSRF}}">
+      <label for="username">Test login</label>
+      <input id="username" name="username" value="{{USERNAME}}" maxlength="64" required autocomplete="off" autofocus>
+      <label for="password">Test parol</label>
+      <input id="password" type="password" name="password" maxlength="128" required autocomplete="off">
+      <button type="submit">Test hisobi bilan kirish</button>
+    </form>
+    <p class="footer">Test hisoblari loyiha egasi tomonidan beriladi.</p>
+  </main>
+</body>
+</html>

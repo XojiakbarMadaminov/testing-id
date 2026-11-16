@@ -1,0 +1,26 @@
+[project]
+name = "testing-id"
+version = "0.1.0"
+description = "Standalone test provider for the supplied OneID HTTP contract"
+requires-python = ">=3.12"
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "python-dotenv>=1,<2"]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.2",
+    "pytest>=8,<10",
+    "ruff>=0.9,<1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
