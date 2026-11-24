@@ -18,11 +18,14 @@ class Settings:
     browser_ttl: int = 3600
     login_ttl: int = 300
     frontend_origins: tuple[str, ...] = ()
+    allow_https_localhost_callbacks: bool = False
+    allow_http_localhost_callbacks: bool = False
+    allow_http_local_domains: bool = False
 
     def __post_init__(self):
         validate_url(self.public_url, origin=True)
         for value in self.frontend_origins:
-            validate_url(value, origin=True)
+            validate_url(value, origin=True, allow_http_local_domains=self.allow_http_local_domains)
         if any(
             value < 1
             for value in (
@@ -54,6 +57,16 @@ class Settings:
             refresh_ttl=int(os.getenv("MOCK_REFRESH_TTL", "86400")),
             browser_ttl=int(os.getenv("MOCK_BROWSER_TTL", "3600")),
             login_ttl=int(os.getenv("MOCK_LOGIN_TTL", "300")),
+            allow_https_localhost_callbacks=os.getenv(
+                "MOCK_ALLOW_HTTPS_LOCALHOST_CALLBACKS", "false"
+            ).lower()
+            == "true",
+            allow_http_localhost_callbacks=os.getenv(
+                "MOCK_ALLOW_HTTP_LOCALHOST_CALLBACKS", "false"
+            ).lower()
+            == "true",
+            allow_http_local_domains=os.getenv("MOCK_ALLOW_HTTP_LOCAL_DOMAINS", "false").lower()
+            == "true",
             frontend_origins=tuple(
                 filter(None, (v.strip() for v in os.getenv("MOCK_FRONTEND_ORIGINS", "").split(",")))
             ),

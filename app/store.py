@@ -7,7 +7,15 @@ import uuid
 from contextlib import contextmanager
 
 from app.config import Settings
-from app.security import check_password, digest, opaque, password_hash, require, validate_url
+from app.security import (
+    ProtocolError,
+    check_password,
+    digest,
+    opaque,
+    password_hash,
+    require,
+    validate_url,
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS clients (
@@ -81,7 +89,16 @@ class Store:
             db.close()
 
     @staticmethod
-    def validate_client(client_id, secret, redirects, scopes):
+    def validate_client(
+        client_id,
+        secret,
+        redirects,
+        scopes,
+        *,
+        allow_https_localhost=False,
+        allow_http_localhost=False,
+        allow_http_local_domains=False,
+    ):
         if (
             not isinstance(client_id, str)
             or not 1 <= len(client_id) <= 100
@@ -92,12 +109,26 @@ class Store:
         ):
             raise ValueError("Client needs an id, a random secret, callbacks and scopes.")
         for uri in redirects:
-            validate_url(uri, callback=True)
+            validate_url(
+                uri,
+                callback=True,
+                allow_https_localhost=allow_https_localhost,
+                allow_http_localhost=allow_http_localhost,
+                allow_http_local_domains=allow_http_local_domains,
+            )
         if any(not isinstance(s, str) or not s.strip() or len(s) > 512 for s in scopes):
             raise ValueError("Invalid scope.")
 
     def add_client(self, client_id, secret, redirects, scopes):
-        self.validate_client(client_id, secret, redirects, scopes)
+        self.validate_client(
+            client_id,
+            secret,
+            redirects,
+            scopes,
+            allow_https_localhost=self.settings.allow_https_localhost_callbacks,
+            allow_http_localhost=self.settings.allow_http_localhost_callbacks,
+            allow_http_local_domains=self.settings.allow_http_local_domains,
+        )
         with self.connect(write=True) as db:
             db.execute(
                 "INSERT INTO clients(client_id,secret_hash,redirects,scopes) VALUES (?,?,?,?)",
@@ -131,6 +162,16 @@ class Store:
 
     def validate_authorization(self, params):
         client = self.client(params.get("client_id", ""))
+        try:
+            validate_url(
+                params.get("redirect_uri", ""),
+                callback=True,
+                allow_https_localhost=self.settings.allow_https_localhost_callbacks,
+                allow_http_localhost=self.settings.allow_http_localhost_callbacks,
+                allow_http_local_domains=self.settings.allow_http_local_domains,
+            )
+        except ValueError:
+            raise ProtocolError(description="Callback URL is not allowed.") from None
         require(
             params.get("redirect_uri") in json.loads(client["redirects"]),
             description="Callback is not registered.",
@@ -344,7 +385,7 @@ class Store:
                 "scope": row["scope"],
             }
 
-    def _token(self, db, params, *, allow_expired=False):
+    def _token(self, db, params, *, for_logout=False):
         row = db.execute(
             "SELECT * FROM tokens WHERE access_hash=?", (digest(params.get("access_token", "")),)
         ).fetchone()
@@ -352,8 +393,7 @@ class Store:
             row
             and row["client_id"] == params["client_id"]
             and row["scope"] == params.get("scope")
-            and row["revoked_at"] is None
-            and (allow_expired or row["expires_at"] > self.now()),
+            and (for_logout or (row["revoked_at"] is None and row["expires_at"] > self.now())),
             "invalid_token",
             "Token is invalid, expired or revoked.",
             401,
@@ -369,7 +409,10 @@ class Store:
 
     def logout(self, params):
         with self.connect(write=True) as db:
-            row = self._token(db, params, allow_expired=True)
+            row = self._token(db, params, for_logout=True)
+            if row["revoked_at"] is not None:
+                return {"ret_cd": "0"}
+
             db.execute(
                 "UPDATE browsers SET expires_at=0 WHERE browser_hash=?", (row["browser_hash"],)
             )

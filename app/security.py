@@ -6,6 +6,8 @@ import re
 import secrets
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+LOCAL_HTTP_DOMAINS = ("petition.local", "cabinet-petition.local")
+
 
 class ProtocolError(Exception):
     def __init__(self, error="invalid_request", description="Invalid request.", status=400):
@@ -48,7 +50,15 @@ def url_origin(value: str) -> str:
     return f"{parsed.scheme}://{host}{suffix}"
 
 
-def validate_url(value: str, *, callback=False, origin=False) -> str:
+def validate_url(
+    value: str,
+    *,
+    callback=False,
+    origin=False,
+    allow_https_localhost=False,
+    allow_http_localhost=False,
+    allow_http_local_domains=False,
+) -> str:
     if not isinstance(value, str) or re.search(r"[\x00-\x20\x7f\\]", value):
         raise ValueError("Expected an absolute HTTP(S) URL.")
     try:
@@ -74,12 +84,23 @@ def validate_url(value: str, *, callback=False, origin=False) -> str:
         if not re.fullmatch(r"[a-z0-9.-]+", host):
             raise ValueError("Invalid hostname.") from None
         loopback = host == "localhost" or host.endswith(".localhost")
+    http_domain = (
+        allow_http_local_domains and p.scheme == "http" and p.hostname.lower() in LOCAL_HTTP_DOMAINS
+    )
     if callback:
-        if loopback or p.scheme != "https":
+        https_local = (
+            allow_https_localhost and p.hostname.lower() == "localhost" and p.scheme == "https"
+        )
+        http_local = (
+            allow_http_localhost and p.hostname.lower() == "localhost" and p.scheme == "http"
+        ) or http_domain
+        if (loopback and not (https_local or http_local)) or (
+            p.scheme != "https" and not http_local
+        ):
             raise ValueError("Callbacks must use registered HTTPS URLs without localhost/loopback.")
         if any(k in {"code", "state", "error"} for k, _ in parse_qsl(p.query)):
             raise ValueError("Callback query cannot predefine OAuth response parameters.")
-    elif p.scheme == "http" and not loopback:
+    elif p.scheme == "http" and not loopback and not (origin and http_domain):
         raise ValueError("HTTP is allowed only on loopback.")
     if origin and (p.path not in {"", "/"} or p.query):
         raise ValueError("Expected an origin without a path or query.")

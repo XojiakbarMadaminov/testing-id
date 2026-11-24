@@ -255,25 +255,42 @@ def test_synthetic_profile_variants_are_returned_without_oidc_renaming(harness, 
 
 def test_logout_revokes_browser_token_family_and_pending_codes_but_not_other_browser(harness):
     first = harness.tokens()
+    peer = harness.tokens()
     pending = harness.login()
     with TestClient(
         create_app(harness.settings), base_url=ORIGIN, follow_redirects=False
     ) as second_client:
         second = Harness(second_client, harness.settings)
         other = second.tokens()
-        response = harness.client.post(
-            ENDPOINT,
-            data={
-                **harness.auth,
-                "grant_type": "one_log_out",
-                "scope": "petition-dev",
-                "access_token": first["access_token"],
-            },
-        )
+        logout = {
+            **harness.auth,
+            "grant_type": "one_log_out",
+            "scope": "petition-dev",
+            "access_token": first["access_token"],
+        }
+        response = harness.client.post(ENDPOINT, data=logout)
         assert response.status_code == 200
         assert harness.exchange(pending).status_code == 400
         assert second.identify(other["access_token"]).status_code == 200
         assert second.begin().status_code == 302
+
+        new_login = harness.tokens()
+        retry = harness.client.post(ENDPOINT, data={**logout, "access_token": peer["access_token"]})
+        assert retry.status_code == 200 and retry.json() == {"ret_cd": "0"}
+        assert harness.identify(peer["access_token"]).status_code == 401
+        assert harness.identify(new_login["access_token"]).status_code == 200
+
+        for changes in (
+            {"access_token": "unknown-token"},
+            {"scope": "other-scope"},
+            {
+                "client_id": "other-client",
+                "client_secret": SECRET + "-other",
+                "scope": "other-scope",
+            },
+        ):
+            rejected = harness.client.post(ENDPOINT, data={**logout, **changes})
+            assert rejected.status_code == 401 and rejected.json()["error"] == "invalid_token"
 
 
 def test_restart_preserves_tokens_accounts_and_code_consumption(harness):

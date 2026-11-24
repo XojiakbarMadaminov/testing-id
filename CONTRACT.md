@@ -20,16 +20,21 @@ Profil: `valid`, `validation_method`, `pin`, `user_id`, `full_name`, `pport_no`,
 - `valid` jadvalda Boolean, namuna JSON’da string. Default `true` Boolean; `string-true` va `string-false` test variantlari bor.
 - `birth_date` jadvalda yyyy-MM-dd, namunada yyyyMMdd. Default ISO date; `legacy-date` fixture ikkinchi variantni beradi.
 - `refresh_token` javobda bor, ammo refresh request kontrakti berilmagan. Mock token qaytaradi va hash/expiry saqlaydi; refresh grant implement qilinmagan. Taxminiy `one_refresh_token` yoki standart `refresh_token` grant 400 unsupported_grant_type oladi.
-- Logout javobi ko‘rsatilmagan. Mock konvensiyasi: HTTP200 `{"ret_cd":"0"}`; qayta logout invalid_token. Bu real OneID javobi tasdiqlanganini anglatmaydi.
+- Mock logout muvaffaqiyatida HTTP 200 `{"ret_cd":"0"}` qaytadi. Client va scope mos bo‘lgan avval bekor qilingan token takroriy logoutda ham shu javobni oladi. Noma’lum yoki client/scope’i mos kelmagan token `401 invalid_token` beradi. Real OneID logout javobi operator bilan alohida tekshiriladi.
 - Xato HTTP status/body’lari berilmagan. Mock konvensiyasi: OAuth `error`/`error_description`; invalid_request/invalid_grant/unsupported_grant_type 400, invalid_client/invalid_token 401, Origin rad etilishi 403, login limit 429 va storage xatosi 503. Payload/secretlar aks ettirilmaydi.
 - Mock defaultlari: code60s, access300s, refresh86400s, login request300s, browser SSO3600s. Bular haqiqiy OneID TTL’lari emas. Defaultlar `MOCK_*_TTL` orqali boshqariladi.
 
 ## Mockdagi qo‘shimcha xavfsizlik va test qarorlari
 
-Redirect faqat exact registered HTTPS URL. Hujjatdagi localhost taqiqini loopback IP va `.localhost`larga ham qo‘llaymiz. Scopelar clientga tegishli exact qiymatlar; `openid profile email` avtomatik qabul qilinmaydi. Client auth faqat POST form orqali, Authorization header orqali emas.
+Default redirect faqat exact registered HTTPS URL. Hujjatdagi localhost taqiqini loopback IP va `.localhost`larga ham qo‘llaymiz. Faqat lokal mock sinovi uchun ikkita mustaqil opt-in bor: `MOCK_ALLOW_HTTPS_LOCALHOST_CALLBACKS` va `MOCK_ALLOW_HTTP_LOCALHOST_CALLBACKS`. Ular tegishli scheme bilan exact `localhost` callback’larini yoqadi; public HTTP/loopback IP/subdomenlarni yoqmaydi. Exact client ro‘yxati authorization paytida ham tekshiriladi; flag o‘chirilsa avval ro‘yxatdan o‘tgan lokal callback ham rad etiladi. Bu istisnolar haqiqiy OneID kontraktiga kirmaydi. Scopelar clientga tegishli exact qiymatlar; `openid profile email` avtomatik qabul qilinmaydi. Client auth faqat POST form orqali, Authorization header orqali emas.
 
 Login sahifasining ichki POST `/login` amali provider UI’ga tegishli; consumer uni bevosita chaqirmaydi. Browser cookie + CSRF + exact Origin tekshiruvi, login paytida cookie rotation va rate limit bor. SSO faqat shu sun’iy browser session doirasida. SQLite transactioni bir koddan bir nechta token chiqarishni rad etadi; restart kodni qayta ishlatishga ruxsat bermaydi.
 
 Mock logout taqdim etilgan tokenning browser sessionini, shu browserga tegishli tokenlar va pending kodlarni bekor qiladi. Boshqa browser sessiyalariga tegmaydi. Bu global/provider logout ko‘lami real OneID hujjatida aniqlanmagani uchun mock qarori hisoblanadi. Disabled client token amallariga, disabled user esa profil/SSO/kod almashinuviga kiritilmaydi.
 
 Public yuzalar faqat `/`, `/health`, `/static`, GET/POST contract endpoint va provider UI `/login`. Public management API yo‘q. UI OneID’ning rasmiy brend sahifasini taqlid qilmaydi va test muhiti ekanini ko‘rsatadi. ERI/Mobile-ID/QR integratsiyasi emas, ularning natija profillari simulyatsiyasi bor.
+
+Named local HTTP frontend uchun alohida `MOCK_ALLOW_HTTP_LOCAL_DOMAINS=true` mavjud.
+Faqat exact `petition.local` va `cabinet-petition.local` callback/originlari yoqiladi;
+boshqa HTTP hostlar, subdomenlar va nuqta bilan tugagan aliaslar ochilmaydi.
+Provider public URL tekshiruvi va exact client callback/code binding saqlanadi.

@@ -34,7 +34,24 @@ docker compose cp app:/data/mening-fikrim-client.json .local/mening-fikrim-clien
 chmod 600 .local/mening-fikrim-client.json
 ```
 
-Bu callback taklif qilingan misol; consumer loyihada ushbu route borligi avtomatik taxmin qilinmaydi. Client id, scope va callback exact mos kelishi kerak. HTTP/localhost/loopback callback ro‘yxatdan o‘tkazilmaydi. Username `disabled` dastlab o‘chirilgan, qolganlarining nomlari fixture ssenariysini bildiradi. [Profillar](app/profiles.py).
+Bu callback taklif qilingan misol; consumer loyihada ushbu route borligi avtomatik taxmin qilinmaydi. Client id, scope va callback exact mos kelishi kerak. Defaultda HTTP/localhost/loopback callback ro‘yxatdan o‘tkazilmaydi. Username `disabled` dastlab o‘chirilgan, qolganlarining nomlari fixture ssenariysini bildiradi. [Profillar](app/profiles.py).
+
+Lokal mock callback uchun alohida opt-inlar bor: `MOCK_ALLOW_HTTPS_LOCALHOST_CALLBACKS=true`
+faqat `https://localhost[:port]/...`, `MOCK_ALLOW_HTTP_LOCALHOST_CALLBACKS=true` faqat
+`http://localhost[:port]/...` URL’lariga ruxsat beradi. Defaultda ikkalasi false.
+Public HTTP, loopback IP va `.localhost` subdomenlari callback sifatida rad etiladi.
+HTTP x-app integratsiyasida clientning exact ro‘yxatiga `http://localhost:5310/auth/callback`
+va `http://localhost:5320/auth/callback`, `MOCK_FRONTEND_ORIGINS`ga shu ikkala origin
+qo‘shiladi. Mavjud client/secret/hisoblar saqlanadi; init takrorlanmaydi.
+Mock public HTTPS manzili o‘zgarmaydi, consumer frontend HTTP `/api` proxy ishlatadi.
+Config/image yangilangach faqat app recreate qilinadi; volume/tunnel saqlanadi.
+
+`petition.local` va `cabinet-petition.local` frontendlariga HTTP callback uchun
+`MOCK_ALLOW_HTTP_LOCAL_DOMAINS=true` qo‘shiladi. Bu flag faqat shu ikki exact hostni
+yoqadi; localhost opt-inlari mustaqil qoladi. Clientga `http://petition.local/auth/callback`
+va `http://cabinet-petition.local/auth/callback`, `MOCK_FRONTEND_ORIGINS`ga esa
+shu ikki origin qo‘shiladi. Boshqa `.local`, subdomen va public HTTP hostlar ochilmaydi.
+Mockning public HTTPS URL’i va mavjud client secretlari o‘zgarmaydi.
 
 ## Haqiqiy HTTP smoke
 
@@ -116,5 +133,5 @@ Saloon integratsiyasi aynan hujjatdagi requestlarni yuborishi, state’ni o‘z 
 
 Haqiqiy OneID’ga ko‘chishda base URL, operator bergan client credentials/scope va ro‘yxatdan o‘tgan callback konfiguratsiyasi yangilanadi. Mockdan o‘tgan test haqiqiy provayderning qabul sinovi o‘rnini bosmaydi. Mock faqat dev/test consumerda ishlatiladi.
 
-Localhost frontend uchun mavjud HTTPS Vite proxy API so‘rovlarini uzata oladi. Hujjat localhost callback’ni rad etadi: API domenidagi callback’da o‘rnatilgan cookie localhostga ko‘chmaydi. Consumer integratsiyasida same-site lokal frontend yoki alohida xavfsiz callback/session handoff dizayni kerak; bu mock loyihasi mavjud consumer auth kodini o‘zgartirmaydi.
+Localhost frontend HTTP yoki HTTPS `/api` proxy bilan ishlaydi; callback yuqoridagi tegishli mock-only flag va exact client ro‘yxati bilan yoqiladi. API cookie’si proxy orqali frontend hostida saqlanadi; HTTP backendda prefikssiz, Secure’siz cookie ishlatiladi. Frontend callback’dan code/state’ni o‘sha API klienti/cookie bilan backendga POST qiladi. Haqiqiy OneID qabuli ro‘yxatdan o‘tgan HTTPS frontend domenida bajariladi.
 

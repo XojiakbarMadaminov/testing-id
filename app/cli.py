@@ -25,7 +25,13 @@ def private_json(path: Path, data):
 
 def initialize(settings, callback, output):
     # Existing data is never reseeded/reset; init must run only against an empty store.
-    validate_url(callback, callback=True)
+    validate_url(
+        callback,
+        callback=True,
+        allow_https_localhost=settings.allow_https_localhost_callbacks,
+        allow_http_localhost=settings.allow_http_localhost_callbacks,
+        allow_http_local_domains=settings.allow_http_local_domains,
+    )
     store = Store(settings)
     if output.exists():
         raise ValueError("Credentials already exist; init refuses to replace them.")
@@ -83,7 +89,15 @@ def register(settings, client_id, redirects, scopes, output):
     if output.exists():
         raise ValueError("Output already exists; refusing to overwrite credentials.")
     secret = secrets.token_urlsafe(48)
-    Store.validate_client(client_id, secret, redirects, scopes)
+    Store.validate_client(
+        client_id,
+        secret,
+        redirects,
+        scopes,
+        allow_https_localhost=settings.allow_https_localhost_callbacks,
+        allow_http_localhost=settings.allow_http_localhost_callbacks,
+        allow_http_local_domains=settings.allow_http_local_domains,
+    )
     created_output = False
     try:
         with Store(settings).connect(write=True) as db:
